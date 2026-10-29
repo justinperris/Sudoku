@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Three Strikes Sudoku</title>
+<meta name="theme-color" content="#1d2a36">
+<meta name="description" content="Sudoku with three difficulty levels, a three-mistake limit and saved best times.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sudoku">
+<style>
+/* Layout: one centered column. Status row, steel-grey board, number pad underneath. */
+:root {
+  --bg: #e6eaee;
+  --board: #ffffff;
+  --ink: #1d2a36;
+  --muted: #566676;
+  --line: #c3ccd5;
+  --line-strong: #2c3b4a;
+  --given: #1d2a36;
+  --user: #1f5fbf;
+  --peer: #eef2f6;
+  --sel: #bcd6fb;
+  --match: #ffd98a;
+  --wrong: #c62828;
+  --wrong-bg: #fde0de;
+  --accent: #e8590c;
+  --accent-ink: #ffffff;
+  --pad: #ffffff;
+  --pad-border: #aab6c2;
+  --veil: rgba(230, 234, 238, 0.92);
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12181e;
+    --board: #1b242d;
+    --ink: #e8edf2;
+    --muted: #93a3b3;
+    --line: #33414e;
+    --line-strong: #8fa3b6;
+    --given: #e8edf2;
+    --user: #7db2ff;
+    --peer: #222d38;
+    --sel: #2c4f7c;
+    --match: #7a5a12;
+    --wrong: #ff7b7b;
+    --wrong-bg: #4a1f22;
+    --accent: #ff8a3d;
+    --accent-ink: #1a1208;
+    --pad: #1f2a34;
+    --pad-border: #3f5163;
+    --veil: rgba(18, 24, 30, 0.92);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12181e;
+  --board: #1b242d;
+  --ink: #e8edf2;
+  --muted: #93a3b3;
+  --line: #33414e;
+  --line-strong: #8fa3b6;
+  --given: #e8edf2;
+  --user: #7db2ff;
+  --peer: #222d38;
+  --sel: #2c4f7c;
+  --match: #7a5a12;
+  --wrong: #ff7b7b;
+  --wrong-bg: #4a1f22;
+  --accent: #ff8a3d;
+  --accent-ink: #1a1208;
+  --pad: #1f2a34;
+  --pad-border: #3f5163;
+  --veil: rgba(18, 24, 30, 0.92);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.4;
+  padding-block: 20px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.app { max-width: 480px; margin: 0 auto; display: grid; gap: 14px; }
+h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.levels { display: grid; grid-template-columns: repeat(3, 1fr); border: 2px solid var(--ink); border-radius: 4px; overflow: hidden; }
+.lvl {
+  background: transparent; border: 0; padding: 9px 4px;
+  font-family: var(--font-display); font-weight: 600; font-size: 19px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.lvl + .lvl { border-left: 2px solid var(--ink); }
+.lvl[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+.status { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.stat { display: grid; gap: 2px; min-width: 0; }
+.label { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.val { font-family: var(--font-display); font-weight: 600; font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.pips { display: flex; gap: 6px; height: 28px; align-items: center; }
+.pip { width: 22px; height: 22px; border: 2px solid var(--ink); border-radius: 3px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 18px; line-height: 1; color: transparent; }
+.pip.used { background: var(--wrong); border-color: var(--wrong); color: #fff; }
+.primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 4px; padding: 10px 16px; font-weight: 600; letter-spacing: 0.02em; }
+
+.board-wrap { position: relative; }
+.board {
+  position: relative;
+  display: grid;
+  container-type: inline-size;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 2px solid var(--line-strong);
+}
+.board::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(var(--line-strong), var(--line-strong)) 33.333% 0 / 3px 100% no-repeat,
+    linear-gradient(var(--line-strong), var(--line-strong)) 66.666% 0 / 3px 100% no-repeat,
+    linear-gradient(var(--line-strong), var(--line-strong)) 0 33.333% / 100% 3px no-repeat,
+    linear-gradient(var(--line-strong), var(--line-strong)) 0 66.666% / 100% 3px no-repeat;
+}
+.cell {
+  aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: 0;
+  display: grid; place-items: center;
+  background: var(--board); color: var(--user);
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(26px, 8.2vw, 42px); font-size: 9.6cqw; line-height: 1;
+}
+.cell.given { color: var(--given); font-weight: 700; }
+.cell:not(.given) { font-weight: 600; }
+.cell.peer { background: var(--peer); }
+.cell.match { background: var(--match); }
+.cell.sel { background: var(--sel); box-shadow: inset 0 0 0 3px var(--accent); }
+.cell.wrong { background: var(--wrong-bg); color: var(--wrong); }
+.cell.shake { animation: shake 0.38s; }
+@keyframes shake { 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+
+.overlay { position: absolute; inset: 0; display: grid; place-items: center; background: var(--veil); padding: 16px; text-align: center; }
+.overlay-inner { display: grid; gap: 10px; justify-items: center; max-width: 300px; }
+.overlay h2, .gate h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 46px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
+.overlay p { margin: 0; color: var(--muted); }
+.overlay-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+.secondary { background: transparent; border: 2px solid var(--ink); border-radius: 4px; padding: 8px 14px; font-weight: 600; }
+
+.pad { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 5px; }
+.num {
+  display: grid; justify-items: center; gap: 0; padding: 6px 0 5px;
+  background: var(--pad); border: 2px solid var(--pad-border); border-radius: 4px;
+}
+.num .d { font-family: var(--font-display); font-weight: 600; font-size: 38px; line-height: 1; }
+.num .left { font-size: 11px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.num.active { background: var(--match); border-color: var(--accent); }
+.num:disabled { opacity: 0.3; cursor: default; }
+
+.tools { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tools .secondary:disabled { opacity: 0.35; cursor: default; }
+.help { margin: 0; font-size: 14px; color: var(--muted); max-width: 60ch; }
+
+.who { margin: -6px 0 0; font-size: 14px; color: var(--muted); }
+.who b { color: var(--ink); font-weight: 600; }
+.link { background: none; border: 0; padding: 0; color: var(--user); text-decoration: underline; font-size: inherit; }
+.toast { min-height: 28px; margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 22px; line-height: 28px; letter-spacing: 0.02em; color: var(--accent); text-wrap: balance; }
+.toast.pop { animation: pop 0.35s ease-out; }
+@keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+.overlay h2.record { color: var(--accent); }
+
+.gate {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; overflow-y: auto;
+  background: var(--bg);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.gate-form { width: 100%; max-width: 360px; display: grid; gap: 10px; }
+.gate .hint { margin: 0; color: var(--muted); }
+.gate .err { margin: 0; min-height: 20px; font-size: 14px; color: var(--wrong); }
+.gate input {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 22px; padding: 10px 12px;
+  background: var(--board); color: var(--ink); border: 2px solid var(--ink); border-radius: 4px;
+}
+.gate .overlay-actions { justify-content: flex-start; margin-top: 0; }
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
+
+@media (prefers-reduced-motion: reduce) { .cell.shake, .toast.pop { animation: none; } }
+[hidden] { display: none !important; }
+body { margin: 0; }
+img { max-width: 100%; }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/barlow-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 500; font-display: swap; src: url("fonts/barlow-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 600; font-display: swap; src: url("fonts/barlow-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 500; font-display: swap; src: url("fonts/barlow-condensed-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 600; font-display: swap; src: url("fonts/barlow-condensed-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 700; font-display: swap; src: url("fonts/barlow-condensed-latin-700-normal.woff2") format("woff2"); }
+
+.banner { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap;
+  background: var(--ink); color: var(--bg); font-weight: 600;
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.banner .primary { padding: 7px 14px; }
+.banner .link { color: var(--bg); }
+.offline-tag { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.installnote { margin: 0; font-size: 14px; color: var(--muted); max-width: 60ch; }
+
+.modal { position: fixed; inset: 0; z-index: 40; display: grid; overflow-y: auto; background: rgba(10, 16, 22, 0.72);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.modal-card { width: 100%; max-width: 440px; box-sizing: border-box; display: grid; gap: 10px; background: var(--board); color: var(--ink); border: 2px solid var(--ink); border-radius: 6px; padding: 20px; margin: auto; }
+.modal-card h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 36px; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
+.modal-card h3 { margin: 6px 0 0; font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase; }
+.modal-card .hint, .modal-card .note { margin: 0; color: var(--muted); font-size: 15px; }
+.modal-card .note { color: var(--ink); }
+.modal-card b { color: var(--ink); font-weight: 600; }
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 15px; }
+.im-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tilt { flex: none; width: 132px; height: 132px; display: grid; place-items: center; }
+.tilt img { width: 112px; height: auto; display: block; transform: rotate(-45deg); border: 3px solid #fff; border-radius: 4px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35); }
+.dl { font-size: 18px; padding: 12px 16px; }
+.dl:disabled { opacity: 0.45; cursor: default; }
+</style>
+</head>
+<body>
+
+<main class="app">
+  <h1 id="titleEl">Three Strikes Sudoku</h1>
+  <p class="who" id="whoEl" hidden>Playing as <b id="whoName"></b> · <button type="button" id="renameBtn" class="link">change name</button></p>
+
+  <div class="levels" role="group" aria-label="Difficulty">
+    <button type="button" class="lvl" data-level="easy" aria-pressed="true">Easy</button>
+    <button type="button" class="lvl" data-level="medium" aria-pressed="false">Medium</button>
+    <button type="button" class="lvl" data-level="hard" aria-pressed="false">Hard</button>
+  </div>
+
+  <div class="status">
+    <div class="stat"><span class="label">Time</span><span id="timeEl" class="val">0:00</span></div>
+    <div class="stat"><span class="label">Best</span><span id="bestEl" class="val">–</span></div>
+    <div class="stat">
+      <span class="label">Mistakes</span>
+      <span id="pipsEl" class="pips" role="img" aria-label="0 of 3 mistakes"><span class="pip">×</span><span class="pip">×</span><span class="pip">×</span></span>
+    </div>
+    <button type="button" id="newBtn" class="primary">New game</button>
+  </div>
+
+  <p id="toastEl" class="toast" aria-live="polite"></p>
+
+  <div class="board-wrap">
+    <div id="boardEl" class="board"></div>
+    <div id="overlayEl" class="overlay" hidden role="status">
+      <div class="overlay-inner">
+        <h2 id="ovTitle">Solved</h2>
+        <p id="ovText"></p>
+        <div class="overlay-actions">
+          <button type="button" id="retryBtn" class="secondary">Retry this puzzle</button>
+          <button type="button" id="againBtn" class="primary">New puzzle</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="padEl" class="pad" aria-label="Number pad"></div>
+  <div class="tools">
+    <button type="button" id="installBtn" class="secondary">Install app</button>
+    <button type="button" id="soundBtn" class="secondary" aria-pressed="true">Sound on</button>
+    <button type="button" id="eraseBtn" class="secondary" disabled>Erase red number</button>
+  </div>
+
+  <p class="help">Tap a number on the board to light up every match. Tap an empty square, then pick a number below. Wrong numbers turn red. Three mistakes ends the game.</p>
+</main>
+
+<div id="gateEl" class="gate" hidden>
+  <form id="gateForm" class="gate-form">
+    <h2 id="gateTitle">Welcome</h2>
+    <p id="gateHint" class="hint"></p>
+    <label class="label" for="nameInput">Player name</label>
+    <input id="nameInput" type="text" maxlength="20" autocomplete="given-name" autocapitalize="words">
+    <p id="gateErr" class="err" role="alert"></p>
+    <div class="overlay-actions">
+      <button type="submit" class="primary">Start playing</button>
+      <button type="button" id="gateCancel" class="secondary" hidden>Cancel</button>
+    </div>
+  </form>
+</div>
+<div id="updateBanner" class="banner" hidden role="status"><span>A new version is ready.</span><button type="button" id="reloadBtn" class="primary">Reload</button><button type="button" id="dismissBtn" class="link">Later</button></div>
+<div id="installModal" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="imTitle">
+    <div class="im-head"><h2 id="imTitle">Get the app</h2><div class="tilt"><img src="images/promo.jpg" alt="Dave pointing at a Sudoku poster that says No Limits, No Ads, Just plain fun" width="480" height="270"></div></div>
+    <p class="hint">Put Sudoku on your home screen. It opens full screen and works with no internet. It also checks for updates when you are online.</p>
+    <button type="button" id="dlBtn" class="primary dl">Download app</button>
+    <p id="dlNote" class="note" hidden></p>
+    <h3>iPhone and iPad</h3>
+    <ol class="steps">
+      <li>Open this page in <b>Safari</b>.</li>
+      <li>Tap the <b>Share</b> button, the square with an arrow pointing up. It is at the bottom of the screen on iPhone and at the top on iPad.</li>
+      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      <li>Tap <b>Add</b>. The Sudoku icon now sits on your home screen.</li>
+    </ol>
+    <h3>Android and computer</h3>
+    <p class="hint">Tap <b>Download app</b> above and confirm. If it does nothing, open the browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>. In Chrome or Edge on a computer, look for the install icon at the right end of the address bar.</p>
+    <div class="overlay-actions"><button type="button" id="imClose" class="secondary">Not now</button></div>
+  </div>
+</div>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<script>
+// <logic>
+const BOX = Array.from({ length: 81 }, (_, i) => Math.floor(i / 27) * 3 + Math.floor((i % 9) / 3));
+const CLUES = { easy: 40, medium: 32, hard: 26 };
+
+function pop(m) { let n = 0; while (m) { m &= m - 1; n++; } return n; }
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Counts solutions up to `limit` and returns the first one found.
+function search(grid, limit, randomize) {
+  const g = grid.slice();
+  const R = new Array(9).fill(0), C = new Array(9).fill(0), B = new Array(9).fill(0);
+  for (let i = 0; i < 81; i++) {
+    if (g[i]) {
+      const bit = 1 << (g[i] - 1);
+      R[Math.floor(i / 9)] |= bit; C[i % 9] |= bit; B[BOX[i]] |= bit;
+    }
+  }
+  let count = 0, first = null;
+  (function rec() {
+    let best = -1, bm = 0, bn = 10;
+    for (let i = 0; i < 81; i++) {
+      if (g[i]) continue;
+      const m = ~(R[Math.floor(i / 9)] | C[i % 9] | B[BOX[i]]) & 511;
+      const n = pop(m);
+      if (n < bn) { best = i; bm = m; bn = n; if (n <= 1) break; }
+    }
+    if (best < 0) { count++; if (!first) first = g.slice(); return; }
+    if (bn === 0) return;
+    const ds = [];
+    for (let d = 0; d < 9; d++) if (bm & (1 << d)) ds.push(d);
+    if (randomize) shuffle(ds);
+    const r = Math.floor(best / 9), c = best % 9, b = BOX[best];
+    for (const d of ds) {
+      const bit = 1 << d;
+      g[best] = d + 1; R[r] |= bit; C[c] |= bit; B[b] |= bit;
+      rec();
+      g[best] = 0; R[r] &= ~bit; C[c] &= ~bit; B[b] &= ~bit;
+      if (count >= limit) return;
+    }
+  })();
+  return { count, first };
+}
+
+function generate(level) {
+  const solution = search(new Array(81).fill(0), 1, true).first;
+  const puzzle = solution.slice();
+  const target = CLUES[level];
+  let given = 81;
+  for (const i of shuffle(Array.from({ length: 81 }, (_, k) => k))) {
+    if (given <= target) break;
+    const v = puzzle[i];
+    puzzle[i] = 0;
+    if (search(puzzle, 2, false).count === 1) given--; else puzzle[i] = v;
+  }
+  return { puzzle, solution };
+}
+// </logic>
+
+const $ = (s) => document.querySelector(s);
+const boardEl = $('#boardEl'), padEl = $('#padEl'), overlayEl = $('#overlayEl');
+const timeEl = $('#timeEl'), pipsEl = $('#pipsEl'), eraseBtn = $('#eraseBtn');
+const cellEls = [], padBtns = [];
+
+let level = 'easy', puzzle = [], solution = [], board = [], wrong = new Set();
+let sel = -1, hl = 0, mistakes = 0, seconds = 0, state = 'playing', timerId = null;
+
+const toastEl = $('#toastEl'), gateEl = $('#gateEl'), nameInput = $('#nameInput'), soundBtn = $('#soundBtn');
+
+// ---- saved data (name, best times, sound) ----
+const mem = {};
+const store = {
+  get(k) { try { const v = localStorage.getItem(k); if (v !== null) return v; } catch (e) {} return k in mem ? mem[k] : null; },
+  set(k, v) { mem[k] = v; try { localStorage.setItem(k, v); } catch (e) {} }
+};
+let playerName = store.get('tss-name') || '';
+let soundOn = store.get('tss-sound') !== 'off';
+const getBest = (lvl) => { const v = parseInt(store.get('tss-best-' + lvl), 10); return v > 0 ? v : null; };
+
+// ---- sound ----
+let ac = null;
+function audio() {
+  if (!soundOn) return null;
+  try {
+    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') ac.resume();
+  } catch (e) { return null; }
+  return ac;
+}
+function tone(freq, at, dur, type, vol) {
+  const a = audio(); if (!a) return;
+  const t = a.currentTime + at, o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'sawtooth'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol || 0.1, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+function sparkle(at, dur) {
+  const a = audio(); if (!a) return;
+  const len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  s.buffer = buf; f.type = 'highpass'; f.frequency.value = 5000; g.gain.value = 0.18;
+  s.connect(f); f.connect(g); g.connect(a.destination); s.start(a.currentTime + at);
+}
+function chime() { tone(880, 0, 0.2, 'sine', 0.14); tone(1318.5, 0.11, 0.35, 'sine', 0.12); }
+function fanfare(big) {
+  const N = { G4: 392, C5: 523.25, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880, C6: 1046.5, E6: 1318.5 };
+  tone(N.G4, 0, 0.13); tone(N.G4, 0.15, 0.13); tone(N.G4, 0.3, 0.13);
+  if (!big) {
+    tone(N.C5, 0.46, 0.7); tone(N.E5, 0.46, 0.7, 'triangle', 0.1); tone(N.G5, 0.46, 0.7, 'triangle', 0.1);
+    return;
+  }
+  tone(N.C5, 0.46, 0.3);
+  tone(N.E5, 0.8, 0.16); tone(N.G5, 0.98, 0.16); tone(N.C6, 1.16, 0.4);
+  tone(N.F5, 1.7, 0.16); tone(N.A5, 1.88, 0.16); tone(N.C6, 2.06, 0.16); tone(N.E6, 2.24, 0.3);
+  [N.C5, N.E5, N.G5, N.C6, N.E6].forEach((f) => { tone(f, 2.62, 1.4, 'sawtooth', 0.06); tone(f, 2.62, 1.4, 'triangle', 0.08); });
+  sparkle(2.62, 1.2);
+}
+
+// ---- confetti ----
+const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cv = $('#confetti'), pen = cv.getContext('2d');
+const COLORS = ['#e8590c', '#1f5fbf', '#ffd98a', '#2e9e5b', '#c62828', '#7db2ff'];
+let parts = [], raf = 0;
+function sizeCv() {
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  pen.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+sizeCv(); window.addEventListener('resize', sizeCv);
+function loop() {
+  pen.clearRect(0, 0, innerWidth, innerHeight);
+  parts = parts.filter((p) => p.age < p.max && p.y < innerHeight + 40);
+  for (const p of parts) {
+    p.age++; p.vy += 0.3; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+    pen.save();
+    pen.globalAlpha = Math.min(1, (p.max - p.age) / 40);
+    pen.translate(p.x, p.y); pen.rotate(p.rot);
+    pen.fillStyle = p.c; pen.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    pen.restore();
+  }
+  raf = parts.length ? requestAnimationFrame(loop) : 0;
+  if (!parts.length) pen.clearRect(0, 0, innerWidth, innerHeight);
+}
+function burst(x, y, n) {
+  for (let i = 0; i < n; i++) {
+    parts.push({
+      x, y, vx: (Math.random() - 0.5) * 15, vy: -(Math.random() * 12 + 5),
+      w: 6 + Math.random() * 6, h: 8 + Math.random() * 8,
+      rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4,
+      c: COLORS[Math.floor(Math.random() * COLORS.length)], age: 0, max: 150 + Math.random() * 90
+    });
+  }
+  if (!raf) raf = requestAnimationFrame(loop);
+}
+function celebrate(big) {
+  fanfare(big);
+  if (calm) return;
+  const r = boardEl.getBoundingClientRect();
+  burst(r.left + r.width / 2, r.top + r.height * 0.4, 110);
+  if (big) {
+    [[0.2, 400], [0.8, 800], [0.5, 1300], [0.3, 1900], [0.7, 2300]]
+      .forEach(([fx, ms]) => setTimeout(() => burst(innerWidth * fx, innerHeight * 0.4, 130), ms));
+  }
+}
+
+// ---- cheering ----
+const PRAISE = [
+  'Great job, {n}!', '{n}, you are amazing!', 'You are really good at this, {n}!',
+  'Nicely done, {n}!', 'That is the way, {n}!', 'Sharp eyes, {n}!', '{n}, you are on fire!',
+  'Look at you go, {n}!', 'Brilliant, {n}!', 'Smooth work, {n}!', 'Keep it rolling, {n}!',
+  '{n}, you make this look easy!'
+];
+let lastPraise = -1, toastT = 0;
+function say(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.remove('pop'); void toastEl.offsetWidth; toastEl.classList.add('pop');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => { toastEl.textContent = ''; }, 4200);
+}
+function speak(msg) {
+  if (!soundOn || !('speechSynthesis' in window)) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(msg);
+    u.lang = 'en-US'; u.rate = 1; u.pitch = 1.1; u.volume = 1;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function compliment() {
+  let k;
+  do { k = Math.floor(Math.random() * PRAISE.length); } while (k === lastPraise);
+  lastPraise = k;
+  const msg = PRAISE[k].replace('{n}', playerName || 'friend');
+  say(msg);
+  chime();
+  speak(msg);
+}
+
+// ---- player name ----
+let stateBeforeGate = 'playing';
+function showName() {
+  $('#whoEl').hidden = !playerName;
+  $('#whoName').textContent = playerName;
+  $('#titleEl').textContent = playerName
+    ? playerName + (/s$/i.test(playerName) ? "'" : "'s") + ' Three Strikes Sudoku'
+    : 'Three Strikes Sudoku';
+}
+function openGate(first) {
+  if (state !== 'gate') stateBeforeGate = state;
+  state = 'gate';
+  $('#gateTitle').textContent = first ? 'Welcome' : 'Change name';
+  $('#gateHint').textContent = first
+    ? 'What should I call you? I will use your name to cheer you on, and your best times are saved on this device.'
+    : 'Pick the name I should use when I cheer you on.';
+  $('#gateCancel').hidden = !playerName;
+  $('#gateErr').textContent = '';
+  nameInput.value = playerName;
+  gateEl.hidden = false;
+  setTimeout(() => nameInput.focus(), 50);
+}
+function closeGate() {
+  gateEl.hidden = true;
+  state = stateBeforeGate === 'gate' ? 'playing' : stateBeforeGate;
+  render();
+}
+
+for (let i = 0; i < 81; i++) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'cell'; b.id = 'cell' + i;
+  b.addEventListener('click', () => onCell(i));
+  boardEl.appendChild(b); cellEls.push(b);
+}
+for (let d = 1; d <= 9; d++) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'num'; b.id = 'num' + d;
+  b.innerHTML = '<span class="d">' + d + '</span><span class="left"></span>';
+  b.addEventListener('click', () => onPad(d));
+  padEl.appendChild(b); padBtns.push(b);
+}
+
+const fmt = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+const cap = (s) => s[0].toUpperCase() + s.slice(1);
+function remaining(d) {
+  let n = 9;
+  for (let i = 0; i < 81; i++) if (board[i] === d && !wrong.has(i)) n--;
+  return n;
+}
+const canEdit = () => sel >= 0 && puzzle[sel] === 0 && (board[sel] === 0 || wrong.has(sel));
+
+function render() {
+  const sr = sel >= 0 ? Math.floor(sel / 9) : -1, sc = sel >= 0 ? sel % 9 : -1, sb = sel >= 0 ? BOX[sel] : -1;
+  for (let i = 0; i < 81; i++) {
+    const v = board[i], r = Math.floor(i / 9), c = i % 9;
+    let cls = 'cell';
+    if (puzzle[i]) cls += ' given';
+    if (sel >= 0 && (r === sr || c === sc || BOX[i] === sb)) cls += ' peer';
+    if (hl && v === hl) cls += ' match';
+    if (i === sel) cls += ' sel';
+    if (wrong.has(i)) cls += ' wrong';
+    cellEls[i].className = cls;
+    cellEls[i].textContent = v || '';
+    cellEls[i].setAttribute('aria-label', 'Row ' + (r + 1) + ', column ' + (c + 1) + ', ' + (v ? (wrong.has(i) ? 'wrong ' + v : v) : 'empty'));
+  }
+  padBtns.forEach((b, k) => {
+    const d = k + 1, rem = remaining(d);
+    b.querySelector('.left').textContent = rem;
+    b.disabled = rem === 0 || state !== 'playing';
+    b.classList.toggle('active', hl === d);
+    b.setAttribute('aria-pressed', hl === d ? 'true' : 'false');
+    b.setAttribute('aria-label', d + ', ' + rem + ' left');
+  });
+  [...pipsEl.children].forEach((p, k) => p.classList.toggle('used', k < mistakes));
+  pipsEl.setAttribute('aria-label', mistakes + ' of 3 mistakes');
+  eraseBtn.disabled = !(state === 'playing' && sel >= 0 && wrong.has(sel));
+  const best = getBest(level);
+  $('#bestEl').textContent = best ? fmt(best) : '–';
+  soundBtn.textContent = soundOn ? 'Sound on' : 'Sound off';
+  soundBtn.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
+  document.querySelectorAll('.lvl').forEach((b) => b.setAttribute('aria-pressed', b.dataset.level === level ? 'true' : 'false'));
+}
+
+function shake(i) {
+  const el = cellEls[i];
+  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+  setTimeout(() => el.classList.remove('shake'), 400);
+}
+
+function finish(kind) {
+  state = kind;
+  const who = playerName || 'friend';
+  let title, text, record = false;
+  if (kind === 'won') {
+    const prev = getBest(level);
+    record = prev !== null && seconds < prev;
+    if (prev === null || seconds < prev) store.set('tss-best-' + level, String(seconds));
+    if (record) {
+      title = 'New best time!';
+      text = fmt(seconds) + ' on ' + cap(level) + ', down from ' + fmt(prev) + '. Amazing, ' + who + '!';
+    } else if (prev === null) {
+      title = 'Solved';
+      text = who + ', that is your first ' + cap(level) + ' win. ' + fmt(seconds) + ' is now your best time.';
+    } else {
+      title = 'Solved';
+      text = 'Nice work, ' + who + '. ' + fmt(seconds) + ' on ' + cap(level) + ', with ' + mistakes + ' mistake' + (mistakes === 1 ? '' : 's') + '. Your best is ' + fmt(prev) + '.';
+    }
+    celebrate(record);
+    setTimeout(() => speak(record ? 'New best time! Amazing, ' + who + '!' : 'Great job, ' + who + '!'), record ? 3200 : 1400);
+  } else {
+    title = 'Three strikes';
+    text = 'Three wrong numbers. Hang in there, ' + who + '. You can try this puzzle again.';
+  }
+  $('#ovTitle').textContent = title;
+  $('#ovTitle').classList.toggle('record', record);
+  $('#ovText').textContent = text;
+  $('#retryBtn').hidden = kind === 'won';
+  overlayEl.hidden = false;
+}
+
+function onCell(i) {
+  if (state !== 'playing') return;
+  const v = board[i];
+  if (v && !wrong.has(i)) { hl = (hl === v && sel === i) ? 0 : v; }
+  sel = i;
+  render();
+}
+
+function onPad(d) {
+  if (state !== 'playing' || remaining(d) === 0) return;
+  if (!canEdit()) { hl = hl === d ? 0 : d; render(); return; }
+  if (wrong.has(sel) && board[sel] === d) return;
+  const i = sel;
+  board[i] = d; hl = d;
+  if (d === solution[i]) {
+    wrong.delete(i);
+    if (board.every((v, k) => v === solution[k])) finish('won');
+    else if (remaining(d) === 0) compliment();
+    render();
+  } else {
+    wrong.add(i); mistakes++;
+    if (mistakes >= 3) finish('lost');
+    render(); shake(i);
+  }
+}
+
+function erase() {
+  if (state !== 'playing' || sel < 0 || !wrong.has(sel)) return;
+  board[sel] = 0; wrong.delete(sel); render();
+}
+
+function startTimer() {
+  clearInterval(timerId);
+  timeEl.textContent = fmt(0);
+  timerId = setInterval(() => { if (state === 'playing') { seconds++; timeEl.textContent = fmt(seconds); } }, 1000);
+}
+
+function resetGame() {
+  board = puzzle.slice(); wrong = new Set();
+  sel = -1; hl = 0; mistakes = 0; seconds = 0; state = 'playing';
+  overlayEl.hidden = true;
+  startTimer(); render();
+}
+
+function newGame(lvl) {
+  if (lvl) level = lvl;
+  const g = generate(level);
+  puzzle = g.puzzle; solution = g.solution;
+  resetGame();
+  toastEl.textContent = '';
+  if (playerName) say('Good luck, ' + playerName + '!');
+}
+
+document.querySelectorAll('.lvl').forEach((b) => b.addEventListener('click', () => newGame(b.dataset.level)));
+$('#newBtn').addEventListener('click', () => newGame());
+$('#againBtn').addEventListener('click', () => newGame());
+$('#retryBtn').addEventListener('click', resetGame);
+eraseBtn.addEventListener('click', erase);
+
+document.addEventListener('keydown', (e) => {
+  if (state !== 'playing' || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[1-9]$/.test(e.key)) { onPad(+e.key); return; }
+  if (e.key === 'Backspace' || e.key === 'Delete') { erase(); return; }
+  const move = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+  if (!move) return;
+  e.preventDefault();
+  const from = sel < 0 ? 40 : sel;
+  const r = Math.min(8, Math.max(0, Math.floor(from / 9) + move[0]));
+  const c = Math.min(8, Math.max(0, (from % 9) + move[1]));
+  sel = r * 9 + c;
+  render();
+  cellEls[sel].focus();
+});
+
+$('#gateForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = nameInput.value.trim().replace(/\s+/g, ' ');
+  if (!name) { $('#gateErr').textContent = 'Type a name to start.'; nameInput.focus(); return; }
+  const first = !playerName;
+  playerName = name; store.set('tss-name', name);
+  showName(); closeGate();
+  say((first ? 'Let us go, ' : 'Good to see you, ') + name + '!');
+  if (first) maybeShowInstall();
+});
+$('#gateCancel').addEventListener('click', closeGate);
+$('#renameBtn').addEventListener('click', () => openGate(false));
+soundBtn.addEventListener('click', () => {
+  soundOn = !soundOn; store.set('tss-sound', soundOn ? 'on' : 'off');
+  if (!soundOn && 'speechSynthesis' in window) { try { speechSynthesis.cancel(); } catch (e) {} }
+  if (soundOn) chime();
+  render();
+});
+
+
+// ---- install, offline and updates ----
+let deferredInstall = null;
+const installBtn = $('#installBtn'), installModal = $('#installModal'), dlBtn = $('#dlBtn'), dlNote = $('#dlNote');
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+if (standalone) installBtn.hidden = true;
+let modalPrev = null;
+function setDl() {
+  dlBtn.disabled = !deferredInstall;
+  dlNote.hidden = !!deferredInstall;
+  dlNote.textContent = isIOS
+    ? 'On iPhone and iPad there is no download button. Follow the steps below instead.'
+    : 'This browser has not offered a download button yet. Use the browser menu steps below.';
+}
+function openInstall() {
+  if (installModal.hidden === false) return;
+  store.set('tss-install-seen', '1');
+  modalPrev = state === 'playing' ? 'playing' : null;
+  if (modalPrev) state = 'gate';
+  setDl(); installModal.hidden = false;
+  installModal.scrollTop = 0;
+  setTimeout(() => { (deferredInstall ? dlBtn : $('#imClose')).focus({ preventScroll: true }); installModal.scrollTop = 0; }, 50);
+}
+function closeInstall() {
+  installModal.hidden = true;
+  if (modalPrev && state === 'gate') state = modalPrev;
+  modalPrev = null; render();
+}
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; if (!installModal.hidden) setDl(); });
+dlBtn.addEventListener('click', async () => {
+  if (!deferredInstall) return;
+  deferredInstall.prompt();
+  try { await deferredInstall.userChoice; } catch (e) {}
+  deferredInstall = null; setDl();
+});
+window.addEventListener('appinstalled', () => { installBtn.hidden = true; if (!installModal.hidden) closeInstall(); });
+installBtn.addEventListener('click', openInstall);
+$('#imClose').addEventListener('click', closeInstall);
+installModal.addEventListener('click', (e) => { if (e.target === installModal) closeInstall(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !installModal.hidden) closeInstall(); });
+function maybeShowInstall() {
+  if (!standalone && store.get('tss-install-seen') !== '1') setTimeout(openInstall, 700);
+}
+
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController && !reloading) $('#updateBanner').hidden = false;
+  });
+  $('#reloadBtn').addEventListener('click', () => { reloading = true; location.reload(); });
+  $('#dismissBtn').addEventListener('click', () => { $('#updateBanner').hidden = true; });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    const check = () => { if (navigator.onLine) reg.update().catch(() => {}); };
+    check();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    window.addEventListener('online', check);
+    setInterval(check, 30 * 60 * 1000);
+  }).catch(() => {});
+}
+
+showName();
+newGame('easy');
+if (!playerName) openGate(true); else maybeShowInstall();
+</script>
+</body>
+</html>
