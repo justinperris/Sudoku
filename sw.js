@@ -1,11 +1,8 @@
 // Bump VERSION with every release so installed copies notice the update.
-const VERSION = '1.2.1';
+const VERSION = '1.4.0';
 const CACHE = 'three-strikes-sudoku-' + VERSION;
 const FILES = [
-  './', './index.html', './manifest.webmanifest',
-  './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/icon-maskable-512.png', './images/promo.jpg',
-  './fonts/barlow-latin-400-normal.woff2', './fonts/barlow-latin-500-normal.woff2', './fonts/barlow-latin-600-normal.woff2',
-  './fonts/barlow-condensed-latin-500-normal.woff2', './fonts/barlow-condensed-latin-600-normal.woff2', './fonts/barlow-condensed-latin-700-normal.woff2'
+  './', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './icon-maskable-512.png'
 ];
 
 self.addEventListener('install', (e) => {
