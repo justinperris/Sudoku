@@ -514,15 +514,15 @@ const PRAISE = [
 ];
 let lastPraise = -1, toastT = 0, idle = 0, lastIdle = -1;
 const IDLE = [
-  '{n} you got this!', "You're doing better than most {n}!", 'Getting close {n}!',
-  'Take your time {n}. You have this.', 'Look for the easy ones {n}.', 'Stay with it {n}!',
-  'One number at a time {n}.', "You're doing great {n}!"
+  'You got this!', "You're doing better than most!", 'Getting close!',
+  'Take your time. You have this.', 'Look for the easy ones.', 'Stay with it!',
+  'One number at a time.', "You're doing great!"
 ];
 function nudge() {
   let k;
   do { k = Math.floor(Math.random() * IDLE.length); } while (k === lastIdle);
   lastIdle = k;
-  const msg = IDLE[k].replace('{n}', playerName || 'friend');
+  const msg = IDLE[k];
   say(msg); speak(msg);
 }
 function oops() {
@@ -729,7 +729,7 @@ function startTimer() {
   timerId = setInterval(() => {
     if (state !== 'playing') return;
     seconds++; timeEl.textContent = fmt(seconds);
-    if (++idle >= 20) { idle = 0; nudge(); }
+    if (++idle >= 60) { idle = 0; nudge(); }
   }, 1000);
 }
 

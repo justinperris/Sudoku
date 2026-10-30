@@ -1,5 +1,5 @@
 // Bump VERSION with every release so installed copies notice the update.
-const VERSION = '1.6.1';
+const VERSION = '1.6.2';
 const CACHE = 'three-strikes-sudoku-' + VERSION;
 const FILES = [
   './', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './icon-maskable-512.png'
