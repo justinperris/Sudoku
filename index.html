@@ -507,16 +507,16 @@ function celebrate(big) {
 
 // ---- cheering ----
 const PRAISE = [
-  'Great job, {n}!', '{n}, you are amazing!', 'You are really good at this, {n}!',
-  'Nicely done, {n}!', 'That is the way, {n}!', 'Sharp eyes, {n}!', '{n}, you are on fire!',
-  'Look at you go, {n}!', 'Brilliant, {n}!', 'Smooth work, {n}!', 'Keep it rolling, {n}!',
-  '{n}, you make this look easy!'
+  'Great job {n}!', '{n} you are amazing!', 'You are really good at this {n}!',
+  'Nicely done {n}!', 'That is the way {n}!', 'Sharp eyes {n}!', '{n} you are on fire!',
+  'Look at you go {n}!', 'Brilliant {n}!', 'Smooth work {n}!', 'Keep it rolling {n}!',
+  '{n} you make this look easy!'
 ];
 let lastPraise = -1, toastT = 0, idle = 0, lastIdle = -1;
 const IDLE = [
-  '{n}, you got this!', "You're doing better than most, {n}!", 'Getting close, {n}!',
-  'Take your time, {n}. You have this.', 'Look for the easy ones, {n}.', 'Stay with it, {n}!',
-  'One number at a time, {n}.', "You're doing great, {n}!"
+  '{n} you got this!', "You're doing better than most {n}!", 'Getting close {n}!',
+  'Take your time {n}. You have this.', 'Look for the easy ones {n}.', 'Stay with it {n}!',
+  'One number at a time {n}.', "You're doing great {n}!"
 ];
 function nudge() {
   let k;
@@ -528,8 +528,8 @@ function nudge() {
 function oops() {
   const n = playerName || 'friend';
   const msg = mistakes === 1
-    ? "That's ok " + n + ", you still have two more. Keep going!"
-    : 'Be careful ' + n + ', you only have one left!';
+    ? "That's ok " + n + " you still have two more. Keep going!"
+    : 'Be careful ' + n + ' you only have one left!';
   say(msg); speak(msg);
 }
 function say(msg) {
