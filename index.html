@@ -234,6 +234,8 @@ img { max-width: 100%; }
 .im-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .tilt { flex: none; width: 132px; height: 132px; display: grid; place-items: center; }
 .tilt img { width: 112px; height: auto; display: block; transform: rotate(-45deg); border: 3px solid #fff; border-radius: 4px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35); }
+.steps.flash { outline: 3px solid var(--accent); outline-offset: 6px; border-radius: 4px; animation: flash 1.6s ease-out 1; }
+@keyframes flash { 0% { outline-color: var(--accent); } 100% { outline-color: transparent; } }
 .dl { font-size: 18px; padding: 12px 16px; }
 .dl:disabled { opacity: 0.45; cursor: default; }
 </style>
@@ -306,15 +308,20 @@ img { max-width: 100%; }
     <p class="hint">Put Sudoku on your home screen. It opens full screen and works with no internet. It also checks for updates when you are online.</p>
     <button type="button" id="dlBtn" class="primary dl">Download app</button>
     <p id="dlNote" class="note" hidden></p>
-    <h3>iPhone and iPad</h3>
-    <ol class="steps">
+    <h3 id="iosHead">iPhone and iPad</h3>
+    <ol class="steps" id="iosSteps">
       <li>Open this page in <b>Safari</b>.</li>
       <li>Tap the <b>Share</b> button, the square with an arrow pointing up. It is at the bottom of the screen on iPhone and at the top on iPad.</li>
       <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
       <li>Tap <b>Add</b>. The Sudoku icon now sits on your home screen.</li>
     </ol>
-    <h3>Android and computer</h3>
-    <p class="hint">Tap <b>Download app</b> above and confirm. If it does nothing, open the browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>. In Chrome or Edge on a computer, look for the install icon at the right end of the address bar.</p>
+    <h3 id="andHead">Android and computer</h3>
+    <ol class="steps" id="andSteps">
+      <li>Tap the <b>menu</b> button, the three dots at the top or bottom right of your browser.</li>
+      <li>Tap <b>Install app</b> or <b>Add to Home screen</b>. Some browsers word it <b>Add page to</b>, then <b>Home screen</b>.</li>
+      <li>Tap <b>Install</b> or <b>Add</b> to confirm.</li>
+    </ol>
+    <p class="hint">Not in the menu? Open this page in <b>Chrome</b> and try again. On a computer with Chrome or Edge, look for the install icon at the right end of the address bar.</p>
     <div class="overlay-actions"><button type="button" id="imClose" class="secondary">Not now</button></div>
   </div>
 </div>
@@ -512,12 +519,15 @@ function say(msg) {
 function speak(msg) {
   if (!soundOn || !('speechSynthesis' in window)) return;
   try {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(msg);
-    u.lang = 'en-US'; u.rate = 1; u.pitch = 1.1; u.volume = 1;
+    // Commas and periods make the voice stop between the name and the compliment, so they are dropped for speech.
+    const text = msg.replace(/[,;:.]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.rate = 1.05; u.pitch = 1.1; u.volume = 1;
     speechSynthesis.speak(u);
   } catch (e) {}
 }
+try { if ('speechSynthesis' in window) speechSynthesis.getVoices(); } catch (e) {}
 function compliment() {
   let k;
   do { k = Math.floor(Math.random() * PRAISE.length); } while (k === lastPraise);
@@ -750,11 +760,11 @@ const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)'
 if (standalone) installBtn.hidden = true;
 let modalPrev = null;
 function setDl() {
-  dlBtn.disabled = !deferredInstall;
+  dlBtn.disabled = false;
   dlNote.hidden = !!deferredInstall;
   dlNote.textContent = isIOS
-    ? 'On iPhone and iPad there is no download button. Follow the steps below instead.'
-    : 'This browser has not offered a download button yet. Use the browser menu steps below.';
+    ? 'iPhone and iPad have no one-tap install. Tap the button to jump to the steps.'
+    : 'Your browser did not offer a one-tap install. Tap the button to see the steps for your phone.';
 }
 function openInstall() {
   if (installModal.hidden === false) return;
@@ -763,7 +773,7 @@ function openInstall() {
   if (modalPrev) state = 'gate';
   setDl(); installModal.hidden = false;
   installModal.scrollTop = 0;
-  setTimeout(() => { (deferredInstall ? dlBtn : $('#imClose')).focus({ preventScroll: true }); installModal.scrollTop = 0; }, 50);
+  setTimeout(() => { dlBtn.focus({ preventScroll: true }); installModal.scrollTop = 0; }, 50);
 }
 function closeInstall() {
   installModal.hidden = true;
@@ -772,7 +782,12 @@ function closeInstall() {
 }
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; if (!installModal.hidden) setDl(); });
 dlBtn.addEventListener('click', async () => {
-  if (!deferredInstall) return;
+  if (!deferredInstall) {
+    const el = $(isIOS ? '#iosSteps' : '#andSteps');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    return;
+  }
   deferredInstall.prompt();
   try { await deferredInstall.userChoice; } catch (e) {}
   deferredInstall = null; setDl();
