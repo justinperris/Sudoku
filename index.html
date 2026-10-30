@@ -180,6 +180,9 @@ h1 {
 .tools .secondary:disabled { opacity: 0.35; cursor: default; }
 .help { margin: 0; font-size: 14px; color: var(--muted); max-width: 60ch; }
 
+.head { display: flex; align-items: center; gap: 12px; }
+.head h1 { min-width: 0; }
+.face { flex: none; width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid var(--ink); }
 .who { margin: -6px 0 0; font-size: 14px; color: var(--muted); }
 .who b { color: var(--ink); font-weight: 600; }
 .link { background: none; border: 0; padding: 0; color: var(--user); text-decoration: underline; font-size: inherit; }
@@ -243,7 +246,7 @@ img { max-width: 100%; }
 <body>
 
 <main class="app">
-  <h1 id="titleEl">Three Strikes Sudoku</h1>
+  <div class="head"><img class="face" alt="Dave" width="60" height="60" src="data:image/jpeg;base64,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"><h1 id="titleEl">Three Strikes Sudoku</h1></div>
   <p class="who" id="whoEl" hidden>Playing as <b id="whoName"></b> · <button type="button" id="renameBtn" class="link">change name</button></p>
 
   <div class="levels" role="group" aria-label="Difficulty">
@@ -509,7 +512,26 @@ const PRAISE = [
   'Look at you go, {n}!', 'Brilliant, {n}!', 'Smooth work, {n}!', 'Keep it rolling, {n}!',
   '{n}, you make this look easy!'
 ];
-let lastPraise = -1, toastT = 0;
+let lastPraise = -1, toastT = 0, idle = 0, lastIdle = -1;
+const IDLE = [
+  '{n}, you got this!', "You're doing better than most, {n}!", 'Getting close, {n}!',
+  'Take your time, {n}. You have this.', 'Look for the easy ones, {n}.', 'Stay with it, {n}!',
+  'One number at a time, {n}.', "You're doing great, {n}!"
+];
+function nudge() {
+  let k;
+  do { k = Math.floor(Math.random() * IDLE.length); } while (k === lastIdle);
+  lastIdle = k;
+  const msg = IDLE[k].replace('{n}', playerName || 'friend');
+  say(msg); speak(msg);
+}
+function oops() {
+  const n = playerName || 'friend';
+  const msg = mistakes === 1
+    ? "That's ok " + n + ", you still have two more. Keep going!"
+    : 'Be careful ' + n + ', you only have one left!';
+  say(msg); speak(msg);
+}
 function say(msg) {
   toastEl.textContent = msg;
   toastEl.classList.remove('pop'); void toastEl.offsetWidth; toastEl.classList.add('pop');
@@ -520,7 +542,7 @@ function speak(msg) {
   if (!soundOn || !('speechSynthesis' in window)) return;
   try {
     // Commas and periods make the voice stop between the name and the compliment, so they are dropped for speech.
-    const text = msg.replace(/[,;:.]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const text = msg.replace(/[,;:.!?]+/g, ' ').replace(/\s+/g, ' ').trim();
     if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'en-US'; u.rate = 1.05; u.pitch = 1.1; u.volume = 1;
@@ -528,6 +550,18 @@ function speak(msg) {
   } catch (e) {}
 }
 try { if ('speechSynthesis' in window) speechSynthesis.getVoices(); } catch (e) {}
+// The first spoken phrase often starts late while the phone loads its voice. A silent warm-up on the first tap avoids that.
+let warmed = false;
+function warmUp() {
+  if (warmed) return; warmed = true;
+  try {
+    if (!('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0; u.lang = 'en-US';
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+document.addEventListener('pointerdown', warmUp, { once: true });
 function compliment() {
   let k;
   do { k = Math.floor(Math.random() * PRAISE.length); } while (k === lastPraise);
@@ -671,7 +705,7 @@ function onPad(d) {
   if (!canEdit()) { hl = hl === d ? 0 : d; render(); return; }
   if (wrong.has(sel) && board[sel] === d) return;
   const i = sel;
-  board[i] = d; hl = d;
+  board[i] = d; hl = d; idle = 0;
   if (d === solution[i]) {
     wrong.delete(i);
     if (board.every((v, k) => v === solution[k])) finish('won');
@@ -679,7 +713,7 @@ function onPad(d) {
     render();
   } else {
     wrong.add(i); mistakes++;
-    if (mistakes >= 3) finish('lost');
+    if (mistakes >= 3) finish('lost'); else oops();
     render(); shake(i);
   }
 }
@@ -692,12 +726,16 @@ function erase() {
 function startTimer() {
   clearInterval(timerId);
   timeEl.textContent = fmt(0);
-  timerId = setInterval(() => { if (state === 'playing') { seconds++; timeEl.textContent = fmt(seconds); } }, 1000);
+  timerId = setInterval(() => {
+    if (state !== 'playing') return;
+    seconds++; timeEl.textContent = fmt(seconds);
+    if (++idle >= 20) { idle = 0; nudge(); }
+  }, 1000);
 }
 
 function resetGame() {
   board = puzzle.slice(); wrong = new Set();
-  sel = -1; hl = 0; mistakes = 0; seconds = 0; state = 'playing';
+  sel = -1; hl = 0; mistakes = 0; seconds = 0; idle = 0; state = 'playing';
   overlayEl.hidden = true;
   startTimer(); render();
 }
