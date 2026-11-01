@@ -745,11 +745,19 @@ function finish(kind) {
     setTimeout(() => speak(record ? 'New best time! Amazing, ' + who + '!' : 'Great job, ' + who + '!'), record ? 3200 : 1400);
     const wonLevel = level;
     lbStatusMsg = lbCanPost() ? 'Saving your time' : lbStatusFor('notoken');
-    lbSubmitWin(wonLevel, who, seconds).then((res) => {
+    const saved = lbSubmitWin(wonLevel, who, seconds).then((res) => {
       lbStatusMsg = lbStatusFor(res);
       if (!lbModal.hidden) { lbLevel = wonLevel; lbLoad(); }
     });
-    setTimeout(() => { if (state === 'won' && lbModal.hidden && lbSetup.hidden) openLb(wonLevel, lbStatusMsg); }, record ? 5200 : 3600);
+    const winSecs = seconds;
+    setTimeout(async () => {
+      if (state !== 'won') return;
+      // give the time a few seconds to reach GitHub, then show the full leaderboard page
+      await Promise.race([saved, new Promise((r) => setTimeout(r, 6000))]);
+      if (state !== 'won') return;
+      if (navigator.onLine && location.protocol !== 'file:') location.href = 'leaderboard.html?level=' + wonLevel + '&me=' + encodeURIComponent(who) + '&t=' + winSecs;
+      else openLb(wonLevel, lbStatusMsg);
+    }, record ? 5200 : 3600);
   } else {
     title = 'Three strikes';
     text = 'Three wrong numbers. Hang in there, ' + who + '. You can try this puzzle again.';
