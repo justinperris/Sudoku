@@ -241,6 +241,22 @@ img { max-width: 100%; }
 @keyframes flash { 0% { outline-color: var(--accent); } 100% { outline-color: transparent; } }
 .dl { font-size: 18px; padding: 12px 16px; }
 .dl:disabled { opacity: 0.45; cursor: default; }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); border: 2px solid var(--ink); border-radius: 4px; overflow: hidden; }
+.tab { background: transparent; border: 0; padding: 9px 4px; font-family: var(--font-display); font-weight: 600; font-size: 19px; letter-spacing: 0.08em; text-transform: uppercase; }
+.tab + .tab { border-left: 2px solid var(--ink); }
+.tab[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.menu-lvl { display: flex; justify-content: space-between; align-items: baseline; width: 100%; padding: 14px 16px; font-family: var(--font-display); font-size: 26px; letter-spacing: 0.08em; text-transform: uppercase; }
+.menu-lvl .mb { font-size: 16px; letter-spacing: 0.04em; text-transform: none; opacity: 0.9; }
+.gate .secondary { width: 100%; }
+.lb { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.lb li { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 4px; }
+.lb li:nth-child(odd) { background: var(--peer); }
+.lb li.me { outline: 2px solid var(--accent); }
+.lb .r { font-family: var(--font-display); font-weight: 700; font-size: 20px; color: var(--muted); }
+.lb .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb .t { font-family: var(--font-display); font-weight: 600; font-size: 22px; font-variant-numeric: tabular-nums; }
+.modal-card input { width: 100%; box-sizing: border-box; font: inherit; font-size: 17px; padding: 9px 11px; background: var(--bg); color: var(--ink); border: 2px solid var(--ink); border-radius: 4px; }
+.modal-card a { color: var(--user); }
 </style>
 </head>
 <body>
@@ -275,7 +291,8 @@ img { max-width: 100%; }
         <p id="ovText"></p>
         <div class="overlay-actions">
           <button type="button" id="retryBtn" class="secondary">Retry this puzzle</button>
-          <button type="button" id="againBtn" class="primary">New puzzle</button>
+          <button type="button" id="ovLbBtn" class="secondary">Leaderboard</button>
+          <button type="button" id="againBtn" class="primary">New game</button>
         </div>
       </div>
     </div>
@@ -284,6 +301,7 @@ img { max-width: 100%; }
   <div id="padEl" class="pad" aria-label="Number pad"></div>
   <div class="tools">
     <button type="button" id="installBtn" class="secondary">Install app</button>
+    <button type="button" id="lbBtn" class="secondary">Leaderboard</button>
     <button type="button" id="soundBtn" class="secondary" aria-pressed="true">Sound on</button>
     <button type="button" id="eraseBtn" class="secondary" disabled>Erase red number</button>
   </div>
@@ -291,6 +309,17 @@ img { max-width: 100%; }
   <p class="help">Tap a number on the board to light up every match. Tap an empty square, then pick a number below. Wrong numbers turn red. Three mistakes ends the game.</p>
 </main>
 
+<div id="menuEl" class="gate" hidden>
+  <div class="gate-form">
+    <h2>Choose a game</h2>
+    <p class="hint">Pick a level. When you solve it, your time goes on the leaderboard.</p>
+    <button type="button" class="primary menu-lvl" data-level="easy"><span>Easy</span><span class="mb"></span></button>
+    <button type="button" class="primary menu-lvl" data-level="medium"><span>Medium</span><span class="mb"></span></button>
+    <button type="button" class="primary menu-lvl" data-level="hard"><span>Hard</span><span class="mb"></span></button>
+    <button type="button" id="menuLb" class="secondary">Leaderboard</button>
+    <button type="button" id="menuBack" class="link" hidden>Back to my game</button>
+  </div>
+</div>
 <div id="gateEl" class="gate" hidden>
   <form id="gateForm" class="gate-form">
     <h2 id="gateTitle">Welcome</h2>
@@ -326,6 +355,39 @@ img { max-width: 100%; }
     </ol>
     <p class="hint">Not in the menu? Open this page in <b>Chrome</b> and try again. On a computer with Chrome or Edge, look for the install icon at the right end of the address bar.</p>
     <div class="overlay-actions"><button type="button" id="imClose" class="secondary">Not now</button></div>
+  </div>
+</div>
+<div id="lbModal" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="lbTitle">
+    <h2 id="lbTitle">Leaderboard</h2>
+    <div class="tabs" role="group" aria-label="Level">
+      <button type="button" class="tab" data-lb="easy" aria-pressed="true">Easy</button>
+      <button type="button" class="tab" data-lb="medium" aria-pressed="false">Medium</button>
+      <button type="button" class="tab" data-lb="hard" aria-pressed="false">Hard</button>
+    </div>
+    <p id="lbMsg" class="hint" aria-live="polite"></p>
+    <ol id="lbList" class="lb"></ol>
+    <p id="lbStatus" class="note" aria-live="polite"></p>
+    <div class="overlay-actions">
+      <button type="button" id="lbNew" class="primary">New game</button>
+      <button type="button" id="lbClose" class="secondary">Close</button>
+    </div>
+    <p class="hint"><a href="leaderboard.html">Open the full page</a> · <button type="button" id="lbSetupBtn" class="link">Leaderboard setup</button></p>
+  </div>
+</div>
+<div id="lbSetup" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="lsTitle">
+    <h2 id="lsTitle">Leaderboard setup</h2>
+    <p class="hint">Times are saved to a GitHub repository. Enter its name and a token that can write to it. They stay on this device only.</p>
+    <label class="label" for="lbRepo">Repository</label>
+    <input id="lbRepo" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label class="label" for="lbToken">Token</label>
+    <input id="lbToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p id="lbSetupMsg" class="note" role="status"></p>
+    <div class="overlay-actions">
+      <button type="button" id="lbSave" class="primary">Save</button>
+      <button type="button" id="lbSetupClose" class="secondary">Cancel</button>
+    </div>
   </div>
 </div>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -681,6 +743,13 @@ function finish(kind) {
     }
     celebrate(record);
     setTimeout(() => speak(record ? 'New best time! Amazing, ' + who + '!' : 'Great job, ' + who + '!'), record ? 3200 : 1400);
+    const wonLevel = level;
+    lbStatusMsg = lbCanPost() ? 'Saving your time' : lbStatusFor('notoken');
+    lbSubmitWin(wonLevel, who, seconds).then((res) => {
+      lbStatusMsg = lbStatusFor(res);
+      if (!lbModal.hidden) { lbLevel = wonLevel; lbLoad(); }
+    });
+    setTimeout(() => { if (state === 'won' && lbModal.hidden && lbSetup.hidden) openLb(wonLevel, lbStatusMsg); }, record ? 5200 : 3600);
   } else {
     title = 'Three strikes';
     text = 'Three wrong numbers. Hang in there, ' + who + '. You can try this puzzle again.';
@@ -750,8 +819,8 @@ function newGame(lvl) {
 }
 
 document.querySelectorAll('.lvl').forEach((b) => b.addEventListener('click', () => newGame(b.dataset.level)));
-$('#newBtn').addEventListener('click', () => newGame());
-$('#againBtn').addEventListener('click', () => newGame());
+$('#newBtn').addEventListener('click', () => openMenu());
+$('#againBtn').addEventListener('click', () => openMenu());
 $('#retryBtn').addEventListener('click', resetGame);
 eraseBtn.addEventListener('click', erase);
 
@@ -789,6 +858,193 @@ soundBtn.addEventListener('click', () => {
   render();
 });
 
+
+// ---- leaderboard (best times are saved to a GitHub repository) ----
+const LB_DEFAULT_REPO = 'justinperris/Sudoku-scores';
+const LB_WORKER = 'https://sudoku-scores.calstage1.workers.dev'; // address of the Cloudflare relay (see worker.js). When set, no player setup is needed.
+const LB_TOKEN = ''; // fallback only: a write token pasted here would be public
+const lbCanPost = () => !!LB_WORKER || !!lbToken();
+const lbRepo = () => (store.get('tss-lb-repo') || LB_DEFAULT_REPO).trim();
+const lbToken = () => (store.get('tss-lb-token') || LB_TOKEN).trim();
+const lbUrl = () => 'https://api.github.com/repos/' + lbRepo() + '/contents/scores.json';
+const b64dec = (s) => decodeURIComponent(escape(atob(s.replace(/\s/g, ''))));
+const b64enc = (s) => btoa(unescape(encodeURIComponent(s)));
+const LEVELS = ['easy', 'medium', 'hard'];
+const lbModal = $('#lbModal'), lbSetup = $('#lbSetup'), menuEl = $('#menuEl');
+let lbLevel = 'easy', lbData = null, lbStatusMsg = '', lbPrev = null, lbBusy = false;
+
+async function lbFetch() {
+  const h = { Accept: 'application/vnd.github+json' };
+  if (lbToken()) h.Authorization = 'Bearer ' + lbToken();
+  const r = await fetch(lbUrl() + '?t=' + Date.now(), { headers: h, cache: 'no-store' });
+  if (r.status === 404) return { data: { easy: [], medium: [], hard: [] }, sha: null };
+  if (!r.ok) throw new Error('read ' + r.status);
+  const j = await r.json();
+  let data = {};
+  try { data = JSON.parse(b64dec(j.content)); } catch (e) {}
+  LEVELS.forEach((k) => { if (!Array.isArray(data[k])) data[k] = []; });
+  return { data, sha: j.sha };
+}
+// One row per player per level: only a faster time replaces the old one.
+function lbMerge(data, items) {
+  let changed = false;
+  items.forEach((it) => {
+    const list = data[it.level]; if (!list) return;
+    const key = it.name.toLowerCase();
+    const i = list.findIndex((e) => String(e.name).toLowerCase() === key);
+    if (i >= 0 && list[i].time <= it.time) return;
+    const row = { name: it.name, time: it.time, date: it.date };
+    if (i >= 0) list[i] = row; else list.push(row);
+    changed = true;
+  });
+  LEVELS.forEach((k) => { data[k] = data[k].sort((a, b) => a.time - b.time || String(a.date).localeCompare(String(b.date))).slice(0, 50); });
+  return changed;
+}
+async function lbPush(items) {
+  if (LB_WORKER) {
+    const r = await fetch(LB_WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) });
+    if (r.status === 400) return 'nobetter'; // the relay refused this time, so do not keep retrying it
+    if (!r.ok) throw new Error('relay ' + r.status);
+    return (await r.json()).status || 'saved';
+  }
+  for (let t = 0; t < 4; t++) {
+    const { data, sha } = await lbFetch();
+    if (!lbMerge(data, items)) return 'nobetter';
+    const body = { message: 'Add ' + items.map((i) => i.name + ' ' + i.level + ' ' + fmt(i.time)).join(', '), content: b64enc(JSON.stringify(data, null, 1) + '\n') };
+    if (sha) body.sha = sha;
+    const r = await fetch(lbUrl(), {
+      method: 'PUT',
+      headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + lbToken(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (r.ok) return 'saved';
+    if (r.status === 409 || r.status === 422) continue; // someone else saved first, so read again and retry
+    throw new Error('write ' + r.status);
+  }
+  throw new Error('busy');
+}
+const pendingGet = () => { try { return JSON.parse(store.get('tss-lb-pending') || '[]'); } catch (e) { return []; } };
+const pendingSet = (a) => store.set('tss-lb-pending', JSON.stringify(a));
+// Times wait in a small queue on the device until they are saved, so a lost connection does not lose a score.
+async function lbFlush() {
+  const items = pendingGet();
+  if (!items.length) return 'empty';
+  if (!lbCanPost()) return 'notoken';
+  if (lbBusy) return 'busy';
+  lbBusy = true;
+  try {
+    const res = await lbPush(items);
+    const ids = new Set(items.map((i) => i.id));
+    pendingSet(pendingGet().filter((i) => !ids.has(i.id)));
+    return res;
+  } catch (e) { return 'error'; }
+  finally { lbBusy = false; }
+}
+async function lbSubmitWin(lvl, name, secs) {
+  if (!lbCanPost()) return 'notoken';
+  pendingSet(pendingGet().concat([{ id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), level: lvl, name, time: secs, date: new Date().toISOString().slice(0, 10) }]));
+  return lbFlush();
+}
+function lbStatusFor(res) {
+  return {
+    saved: 'Your time is on the leaderboard.',
+    nobetter: 'Your best time for this level is already on the leaderboard.',
+    notoken: 'This device is not sharing scores yet. Tap Leaderboard setup below.',
+    error: 'Could not reach the leaderboard. Your time will be sent when you are back online.',
+    busy: 'Saving your time.'
+  }[res] || '';
+}
+function lbDraw() {
+  document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-pressed', b.dataset.lb === lbLevel ? 'true' : 'false'));
+  const list = $('#lbList'); list.textContent = '';
+  const rows = lbData ? lbData[lbLevel] : [];
+  if (lbData) $('#lbMsg').textContent = rows.length ? '' : 'No times yet. Be the first.';
+  const me = playerName.toLowerCase();
+  rows.slice(0, 20).forEach((r, i) => {
+    const li = document.createElement('li');
+    if (me && String(r.name).toLowerCase() === me) li.className = 'me';
+    [['r', i + 1], ['n', r.name], ['t', fmt(r.time)]].forEach(([c, v]) => {
+      const s = document.createElement('span'); s.className = c; s.textContent = v; li.appendChild(s);
+    });
+    list.appendChild(li);
+  });
+  $('#lbStatus').textContent = lbStatusMsg;
+}
+async function lbLoad() {
+  $('#lbMsg').textContent = 'Loading';
+  try { lbData = (await lbFetch()).data; lbDraw(); }
+  catch (e) { lbData = null; $('#lbList').textContent = ''; $('#lbMsg').textContent = 'Could not load the leaderboard. Check your connection and the setup.'; }
+}
+function openLb(lvl, status) {
+  if (lvl) lbLevel = lvl;
+  lbStatusMsg = status !== undefined ? status : (lbCanPost() ? '' : lbStatusFor('notoken'));
+  if (!lbModal.hidden) { lbLoad(); return; }
+  if (state === 'playing') { lbPrev = 'playing'; state = 'gate'; }
+  lbModal.hidden = false; lbModal.scrollTop = 0;
+  lbDraw(); lbLoad();
+  lbFlush().then((res) => { if (res === 'saved' && !lbModal.hidden) lbLoad(); });
+}
+function closeLb() {
+  lbModal.hidden = true;
+  if (lbPrev && state === 'gate') state = lbPrev;
+  lbPrev = null; render();
+}
+document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => { lbLevel = b.dataset.lb; lbDraw(); }));
+$('#lbClose').addEventListener('click', closeLb);
+$('#lbNew').addEventListener('click', () => { closeLb(); openMenu(); });
+$('#lbBtn').addEventListener('click', () => openLb());
+$('#ovLbBtn').addEventListener('click', () => openLb(level));
+$('#menuLb').addEventListener('click', () => openLb());
+lbModal.addEventListener('click', (e) => { if (e.target === lbModal) closeLb(); });
+
+// leaderboard setup
+function openLbSetup() {
+  $('#lbRepo').value = lbRepo();
+  $('#lbToken').value = ''; $('#lbToken').placeholder = lbToken() ? 'Saved on this device. Leave blank to keep it.' : 'Paste the token here';
+  $('#lbSetupMsg').textContent = ''; lbSetup.hidden = false; lbSetup.scrollTop = 0;
+}
+$('#lbSetupBtn').addEventListener('click', openLbSetup);
+if (LB_WORKER) $('#lbSetupBtn').hidden = true;
+$('#lbSetupClose').addEventListener('click', () => { lbSetup.hidden = true; });
+$('#lbSave').addEventListener('click', async () => {
+  const repo = $('#lbRepo').value.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\/+$/, '');
+  const tok = $('#lbToken').value.trim() || lbToken();
+  const msg = $('#lbSetupMsg');
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) { msg.textContent = 'Type the repository like this: yourname/Sudoku-scores'; return; }
+  msg.textContent = 'Checking';
+  try {
+    const h = { Accept: 'application/vnd.github+json' };
+    if (tok) h.Authorization = 'Bearer ' + tok;
+    const r = await fetch('https://api.github.com/repos/' + repo, { headers: h, cache: 'no-store' });
+    if (!r.ok) { msg.textContent = 'Could not open that repository with this token. Check the spelling and the token.'; return; }
+  } catch (e) { msg.textContent = 'Could not reach GitHub. Check your connection.'; return; }
+  store.set('tss-lb-repo', repo);
+  if ($('#lbToken').value.trim()) store.set('tss-lb-token', tok);
+  lbSetup.hidden = true;
+  lbStatusMsg = tok ? 'Saved. Your next win will be posted.' : lbStatusFor('notoken');
+  lbLoad(); lbFlush();
+});
+
+// game selection page
+let menuPrev = false;
+function openMenu(fresh) {
+  menuPrev = !fresh && state === 'playing';
+  state = 'menu';
+  menuEl.querySelectorAll('.menu-lvl').forEach((b) => {
+    const t = getBest(b.dataset.level);
+    b.querySelector('.mb').textContent = t ? 'Best ' + fmt(t) : '';
+  });
+  $('#menuBack').hidden = !menuPrev;
+  menuEl.hidden = false; menuEl.scrollTop = 0;
+}
+menuEl.querySelectorAll('.menu-lvl').forEach((b) => b.addEventListener('click', () => { menuEl.hidden = true; newGame(b.dataset.level); }));
+$('#menuBack').addEventListener('click', () => { menuEl.hidden = true; state = 'playing'; render(); });
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!lbSetup.hidden) lbSetup.hidden = true; else if (!lbModal.hidden) closeLb();
+});
+window.addEventListener('online', () => { lbFlush(); });
 
 // ---- install, offline and updates ----
 let deferredInstall = null;
@@ -858,6 +1114,8 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 
 showName();
 newGame('easy');
+openMenu(true);
+lbFlush();
 if (!playerName) openGate(true); else maybeShowInstall();
 </script>
 </body>

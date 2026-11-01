@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sudoku Leaderboard</title>
+<style>
+:root { --bg:#e6eaee; --board:#fff; --ink:#1d2a36; --muted:#566676; --peer:#eef2f6; --accent:#e8590c; --accent-ink:#fff; }
+@media (prefers-color-scheme: dark) { :root { --bg:#12181e; --board:#1b242d; --ink:#e8edf2; --muted:#93a3b3; --peer:#222d38; --accent:#ff8a3d; --accent-ink:#1a1208; } }
+body { margin:0; background:var(--bg); color:var(--ink); font-family:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif; padding:16px; }
+main { max-width:480px; margin:0 auto; display:grid; gap:14px; }
+h1 { margin:0; font-family:"Barlow Condensed","Arial Narrow",system-ui,sans-serif; font-size:40px; line-height:1; letter-spacing:.03em; text-transform:uppercase; }
+.tabs { display:grid; grid-template-columns:repeat(3,1fr); border:2px solid var(--ink); border-radius:4px; overflow:hidden; }
+.tab { background:transparent; color:inherit; border:0; padding:9px 4px; font:600 19px "Barlow Condensed","Arial Narrow",system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
+.tab + .tab { border-left:2px solid var(--ink); }
+.tab[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+ol { list-style:none; margin:0; padding:0; display:grid; gap:4px; }
+li { display:grid; grid-template-columns:28px 1fr auto auto; gap:8px; align-items:baseline; padding:7px 8px; border-radius:4px; background:var(--board); }
+li:nth-child(odd) { background:var(--peer); }
+.r { font:700 20px "Barlow Condensed",system-ui,sans-serif; color:var(--muted); }
+.n { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.t { font:600 22px "Barlow Condensed",system-ui,sans-serif; font-variant-numeric:tabular-nums; }
+.d { font-size:13px; color:var(--muted); }
+.msg { margin:0; color:var(--muted); }
+a { color:var(--accent); font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sudoku Leaderboard</h1>
+  <div class="tabs" id="tabs">
+    <button class="tab" data-l="easy" aria-pressed="true">Easy</button>
+    <button class="tab" data-l="medium" aria-pressed="false">Medium</button>
+    <button class="tab" data-l="hard" aria-pressed="false">Hard</button>
+  </div>
+  <p class="msg" id="msg">Loading</p>
+  <ol id="list"></ol>
+  <p class="msg"><a href="./">Play Sudoku</a></p>
+</main>
+<script>
+// Reads scores.json from the leaderboard repository. Add ?repo=name/Repo to the address to point it somewhere else.
+const repo = new URLSearchParams(location.search).get('repo') || 'justinperris/Sudoku-scores';
+const fmt = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+let level = 'easy', data = null;
+function draw() {
+  document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-pressed', b.dataset.l === level ? 'true' : 'false'));
+  const list = document.getElementById('list'); list.textContent = '';
+  if (!data) return;
+  const rows = data[level] || [];
+  document.getElementById('msg').textContent = rows.length ? '' : 'No times yet. Be the first.';
+  rows.slice(0, 50).forEach((r, i) => {
+    const li = document.createElement('li');
+    [['r', i + 1], ['n', r.name], ['t', fmt(r.time)], ['d', r.date || '']].forEach(([c, v]) => {
+      const s = document.createElement('span'); s.className = c; s.textContent = v; li.appendChild(s);
+    });
+    list.appendChild(li);
+  });
+}
+document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => { level = b.dataset.l; draw(); }));
+fetch('https://api.github.com/repos/' + repo + '/contents/scores.json?t=' + Date.now(), { headers: { Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' })
+  .then((r) => { if (r.status === 404) return {}; if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then((j) => { data = j; draw(); })
+  .catch(() => { document.getElementById('msg').textContent = 'Could not load the leaderboard. Try again in a minute.'; });
+</script>
+</body>
+</html>
