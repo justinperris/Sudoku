@@ -257,6 +257,9 @@ img { max-width: 100%; }
 .lb .t { font-family: var(--font-display); font-weight: 600; font-size: 22px; font-variant-numeric: tabular-nums; }
 .modal-card input { width: 100%; box-sizing: border-box; font: inherit; font-size: 17px; padding: 9px 11px; background: var(--bg); color: var(--ink); border: 2px solid var(--ink); border-radius: 4px; }
 .modal-card a { color: var(--user); }
+.pop { position: fixed; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom, 0px)); z-index: 35; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
+.pop span { pointer-events: auto; max-width: 340px; background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); text-align: center; }
+.pop span.in { animation: pop 0.35s ease-out; }
 </style>
 </head>
 <body>
@@ -302,6 +305,7 @@ img { max-width: 100%; }
   <div class="tools">
     <button type="button" id="installBtn" class="secondary">Install app</button>
     <button type="button" id="lbBtn" class="secondary">Leaderboard</button>
+    <button type="button" id="pauseBtn" class="secondary">Pause</button>
     <button type="button" id="soundBtn" class="secondary" aria-pressed="true">Sound on</button>
     <button type="button" id="eraseBtn" class="secondary" disabled>Erase red number</button>
   </div>
@@ -318,6 +322,14 @@ img { max-width: 100%; }
     <button type="button" class="primary menu-lvl" data-level="hard"><span>Hard</span><span class="mb"></span></button>
     <button type="button" id="menuLb" class="secondary">Leaderboard</button>
     <button type="button" id="menuBack" class="link" hidden>Back to my game</button>
+  </div>
+</div>
+<div id="resumeEl" class="gate" hidden>
+  <div class="gate-form">
+    <h2>Game paused</h2>
+    <p class="hint" id="resumeInfo"></p>
+    <button type="button" id="resumeBtn" class="primary dl">Resume game</button>
+    <button type="button" id="resumeNew" class="secondary">Start a new game</button>
   </div>
 </div>
 <div id="gateEl" class="gate" hidden>
@@ -390,6 +402,7 @@ img { max-width: 100%; }
     </div>
   </div>
 </div>
+<div id="lbPop" class="pop" role="status" aria-live="polite" hidden><span></span></div>
 <canvas id="confetti" aria-hidden="true"></canvas>
 
 <script>
@@ -462,7 +475,7 @@ const boardEl = $('#boardEl'), padEl = $('#padEl'), overlayEl = $('#overlayEl');
 const timeEl = $('#timeEl'), pipsEl = $('#pipsEl'), eraseBtn = $('#eraseBtn');
 const cellEls = [], padBtns = [];
 
-let level = 'easy', puzzle = [], solution = [], board = [], wrong = new Set();
+let level = 'easy', puzzle = [], solution = [], board = [], wrong = new Set(), gameLive = false;
 let sel = -1, hl = 0, mistakes = 0, seconds = 0, state = 'playing', timerId = null;
 
 const toastEl = $('#toastEl'), gateEl = $('#gateEl'), nameInput = $('#nameInput'), soundBtn = $('#soundBtn');
@@ -710,6 +723,8 @@ function render() {
   [...pipsEl.children].forEach((p, k) => p.classList.toggle('used', k < mistakes));
   pipsEl.setAttribute('aria-label', mistakes + ' of 3 mistakes');
   eraseBtn.disabled = !(state === 'playing' && sel >= 0 && wrong.has(sel));
+  $('#pauseBtn').disabled = state !== 'playing';
+  if (gameLive && state === 'playing') saveGame();
   const best = getBest(level);
   $('#bestEl').textContent = best ? fmt(best) : '–';
   soundBtn.textContent = soundOn ? 'Sound on' : 'Sound off';
@@ -724,7 +739,7 @@ function shake(i) {
 }
 
 function finish(kind) {
-  state = kind;
+  state = kind; gameLive = false; clearSaved();
   const who = playerName || 'friend';
   let title, text, record = false;
   if (kind === 'won') {
@@ -806,13 +821,14 @@ function startTimer() {
   timerId = setInterval(() => {
     if (state !== 'playing') return;
     seconds++; timeEl.textContent = fmt(seconds);
+    if (seconds % 5 === 0) saveGame();
     if (++idle >= 60) { idle = 0; nudge(); }
   }, 1000);
 }
 
 function resetGame() {
   board = puzzle.slice(); wrong = new Set();
-  sel = -1; hl = 0; mistakes = 0; seconds = 0; idle = 0; state = 'playing';
+  sel = -1; hl = 0; mistakes = 0; seconds = 0; idle = 0; state = 'playing'; gameLive = true;
   overlayEl.hidden = true;
   startTimer(); render();
 }
@@ -1054,6 +1070,122 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('online', () => { lbFlush(); });
 
+// ---- small updates when the leaderboard changes while you play ----
+const lbPop = $('#lbPop');
+let popT = 0, popQ = [], popShowing = false, seenBoard = null;
+function popNext() {
+  if (popShowing) return;
+  const text = popQ.shift();
+  if (!text) { lbPop.hidden = true; return; }
+  popShowing = true;
+  const span = lbPop.querySelector('span');
+  span.textContent = text; lbPop.hidden = false;
+  span.classList.remove('in'); void span.offsetWidth; span.classList.add('in');
+  clearTimeout(popT);
+  popT = setTimeout(() => { popShowing = false; lbPop.hidden = true; setTimeout(popNext, 350); }, 5000);
+}
+function popUp(texts) { popQ = popQ.concat(texts).slice(0, 6); popNext(); }
+function lbSnapshot(d) {
+  const snap = {};
+  LEVELS.forEach((k) => {
+    const list = Array.isArray(d[k]) ? d[k] : [];
+    const times = new Map();
+    list.forEach((e) => times.set(String(e.name).toLowerCase(), { name: String(e.name), time: e.time }));
+    snap[k] = { times, top: list.slice(0, 3).map((e) => String(e.name).toLowerCase()) };
+  });
+  return snap;
+}
+function lbChanges(prev, cur, me) {
+  const made = [], better = [], first = [], dropped = [];
+  LEVELS.forEach((k) => {
+    const L = cap(k), p = prev[k], c = cur[k];
+    c.times.forEach((e, n) => {
+      const old = p.times.get(n);
+      if (n === me) return;
+      if (!old) made.push(e.name + ' just made the ' + L + ' leaderboard');
+      else if (e.time < old.time) better.push(e.name + ' improved their ' + L + ' time to ' + fmt(e.time));
+    });
+    if (c.top[0] && c.top[0] !== p.top[0] && c.top[0] !== me) first.push(c.times.get(c.top[0]).name + ' took #1 on ' + L);
+    p.top.forEach((n) => {
+      if (c.top.includes(n) || !c.times.has(n)) return;
+      dropped.push((n === me ? 'You' : c.times.get(n).name) + ' dropped out of the ' + L + ' top 3');
+    });
+  });
+  return better.concat(dropped, made, first);
+}
+async function lbWatch() {
+  if (document.hidden || !navigator.onLine || location.protocol === 'file:') return;
+  try {
+    // raw.githubusercontent has no sign-in limit, and updates within a few minutes
+    const r = await fetch('https://raw.githubusercontent.com/' + lbRepo() + '/HEAD/scores.json?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
+    if (!r.ok) return;
+    const cur = lbSnapshot(await r.json());
+    const prev = seenBoard;
+    seenBoard = cur;
+    if (!prev) return; // the first look is only the starting point
+    const msgs = lbChanges(prev, cur, playerName.toLowerCase());
+    if (msgs.length) popUp(msgs);
+  } catch (e) {}
+}
+lbPop.addEventListener('click', () => { lbPop.hidden = true; });
+setTimeout(lbWatch, 3000);
+setInterval(lbWatch, 90000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) lbWatch(); });
+
+// ---- pause, and remember the game when it is minimized or closed ----
+const resumeEl = $('#resumeEl');
+function saveGame() {
+  if (!gameLive) return;
+  try { store.set('tss-game', JSON.stringify({ v: 1, level, puzzle, solution, board, wrong: [...wrong], mistakes, seconds })); } catch (e) {}
+}
+const clearSaved = () => store.set('tss-game', '');
+function loadSaved() {
+  try {
+    const g = JSON.parse(store.get('tss-game') || 'null');
+    if (!g || !CLUES[g.level]) return null;
+    const ok = (a) => Array.isArray(a) && a.length === 81 && a.every((v) => Number.isInteger(v) && v >= 0 && v <= 9);
+    if (!ok(g.puzzle) || !ok(g.solution) || !ok(g.board) || !Array.isArray(g.wrong)) return null;
+    if (!(g.seconds >= 0) || !(g.mistakes >= 0 && g.mistakes < 3)) return null;
+    if (g.board.every((v, i) => v === g.solution[i])) return null;
+    return g;
+  } catch (e) { return null; }
+}
+function openResume() {
+  $('#resumeInfo').textContent = cap(level) + ' · ' + fmt(seconds) + ' · ' + mistakes + ' mistake' + (mistakes === 1 ? '' : 's') + '. The timer is stopped.';
+  toastEl.textContent = ''; clearTimeout(toastT);
+  resumeEl.hidden = false;
+}
+function restoreGame(g) {
+  level = g.level; puzzle = g.puzzle; solution = g.solution; board = g.board;
+  wrong = new Set(g.wrong); mistakes = g.mistakes; seconds = g.seconds;
+  sel = -1; hl = 0; idle = 0; gameLive = true;
+  overlayEl.hidden = true;
+  startTimer(); timeEl.textContent = fmt(seconds);
+  state = 'paused';
+  render(); openResume();
+}
+function pauseGame() {
+  if (state !== 'playing') return;
+  state = 'paused'; saveGame(); render(); openResume();
+}
+function onHide() {
+  if (!gameLive) return;
+  saveGame();
+  if (state === 'playing') { state = 'paused'; render(); openResume(); }
+  try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) onHide(); });
+window.addEventListener('pagehide', onHide);
+$('#pauseBtn').addEventListener('click', pauseGame);
+$('#resumeBtn').addEventListener('click', () => {
+  resumeEl.hidden = true;
+  if (state === 'paused') { state = 'playing'; idle = 0; render(); say('Welcome back' + (playerName ? ' ' + playerName : '') + '. Timer is running.'); }
+});
+$('#resumeNew').addEventListener('click', () => {
+  resumeEl.hidden = true; gameLive = false; clearSaved();
+  openMenu(true);
+});
+
 // ---- install, offline and updates ----
 let deferredInstall = null;
 const installBtn = $('#installBtn'), installModal = $('#installModal'), dlBtn = $('#dlBtn'), dlNote = $('#dlNote');
@@ -1121,8 +1253,8 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 showName();
-newGame('easy');
-openMenu(true);
+const savedGame = loadSaved();
+if (savedGame) restoreGame(savedGame); else { newGame('easy'); openMenu(true); gameLive = false; clearSaved(); } // nothing is in progress until a level is picked
 lbFlush();
 if (!playerName) openGate(true); else maybeShowInstall();
 </script>
