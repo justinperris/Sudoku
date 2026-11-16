@@ -198,6 +198,10 @@ h1 {
 }
 .gate-form { width: 100%; max-width: 360px; display: grid; gap: 10px; }
 .gate .hint { margin: 0; color: var(--muted); }
+#gateEl .gate-face { justify-self: center; width: 112px; height: 112px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ink); }
+#gateEl h2 { font-size: 38px; text-align: center; text-wrap: balance; }
+#gateEl .hint { color: var(--ink); font-size: 18px; text-align: center; text-wrap: balance; }
+#gateEl .overlay-actions { justify-content: center; margin-top: 4px; }
 .gate .err { margin: 0; min-height: 20px; font-size: 14px; color: var(--wrong); }
 .gate input {
   width: 100%; box-sizing: border-box; font: inherit; font-size: 22px; padding: 10px 12px;
@@ -334,6 +338,7 @@ img { max-width: 100%; }
 </div>
 <div id="gateEl" class="gate" hidden>
   <form id="gateForm" class="gate-form">
+    <img id="gateFace" class="gate-face" alt="Dave" width="112" height="112">
     <h2 id="gateTitle">Welcome</h2>
     <p id="gateHint" class="hint"></p>
     <label class="label" for="nameInput">Player name</label>
@@ -659,9 +664,10 @@ function showName() {
 function openGate(first) {
   if (state !== 'gate') stateBeforeGate = state;
   state = 'gate';
-  $('#gateTitle').textContent = first ? 'Welcome' : 'Change name';
+  $('#gateFace').src = $('.face').src;
+  $('#gateTitle').textContent = first ? "Welcome to Dave's Three Strikes Sudoku" : 'Change name';
   $('#gateHint').textContent = first
-    ? 'What should I call you? I will use your name to cheer you on, and your best times are saved on this device.'
+    ? 'What should we call you so it will become your game?'
     : 'Pick the name I should use when I cheer you on.';
   $('#gateCancel').hidden = !playerName;
   $('#gateErr').textContent = '';
